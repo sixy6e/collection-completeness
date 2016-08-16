@@ -18,9 +18,9 @@ def sensor(row):
 def dt(row):                                       
     return datetime.strptime(row.split('-')[1], '%Y%m%d')
 
-wrs2_fname = '/short/v10/jps547/data-collection/wrs2-descending/wrs2_descending.shp'
-fname = '/short/v10/jps547/data-collection/collection-completeness.h5'
-tm_fname = '/short/v10/jps547/data-collection/tm-world-borders/TM_WORLD_BORDERS-0.3.shp'
+wrs2_fname = 'wrs2-descending/wrs2_descending.shp'
+fname = 'collection-completeness.h5'
+tm_fname = 'tm-world-borders/TM_WORLD_BORDERS-0.3.shp'
 
 store = pandas.HDFStore(fname)
 oth_df = store['/oth_and_children_products']
