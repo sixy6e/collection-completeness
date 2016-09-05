@@ -169,9 +169,13 @@ def main_mpi(input_fname):
     # rank_list = scatter(files[0:64], n_proc)[rank]
 
     failures = []
+    packagetmp = []
     for fname in rank_list:
         if "failure" in fname:
             failures.append(fname)
+            continue
+        if "packagetmp" in fname:
+            packagetmp.append(fname)
             continue
         result = process_lpgs_log(fname)
         df = df.append(result, ignore_index=True)
@@ -202,6 +206,7 @@ def main_mpi(input_fname):
     out_fname = 'collection-completeness-{rank}.h5'.format(rank=rank)
     store = pandas.HDFStore(out_fname, 'w', complib='blosc')
     store['lpgs_fails'] = pandas.DataFrame({'level0_fname': failures})
+    store['packagetmp'] = pandas.DataFrame({'packagetmp': packagetmp})
     store['sys_products'] = sys_df
     store['oth_and_children_products'] = oth_df
     store.close()
