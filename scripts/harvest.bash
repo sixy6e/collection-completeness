@@ -16,3 +16,5 @@ cat ls7-lpgs_out.xml.txt >> ls578-lpgs_out.xml.txt
 cat ls8-lpgs_out.xml.txt >> ls578-lpgs_out.xml.txt
 
 mpiexec -n 16 python ls_collections.py
+
+python ls_collections.py --combine
