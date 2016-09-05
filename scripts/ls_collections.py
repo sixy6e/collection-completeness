@@ -5,6 +5,7 @@ import os
 from os.path import join as pjoin, basename, dirname, exists
 import re
 import xml.etree.ElementTree as ET
+import argparse
 from mpi4py import MPI
 import pandas
 from eotools.tiling import scatter
@@ -167,14 +168,18 @@ def main_mpi(input_fname):
     rank_list = scatter(files, n_proc)[rank]
     # rank_list = scatter(files[0:64], n_proc)[rank]
 
+    failures = []
     for fname in rank_list:
+        if "failure" in fname:
+            failures.append(fname)
+            continue
         result = process_lpgs_log(fname)
         df = df.append(result, ignore_index=True)
 
     # seperate the sys and oth products and failed
-    wh = df['level1_name'].str.contains("failure")
-    fails = df[wh].copy()
-    df = df[~wh]
+    # wh = df['level1_name'].str.contains("failure")
+    # fails = df[wh].copy()
+    # df = df[~wh]
     wh = df['level1_name'].str.contains("SYS")
     sys_df = df[wh].copy()
     oth_df = df[~wh].copy()
@@ -189,16 +194,47 @@ def main_mpi(input_fname):
     # once the results have been combined, then do the exists function
 
     # determine whether or not a child product exists
-    oth_df['nbar_exists'] = oth_df['nbar_name'].apply(exists)
-    oth_df['nbart_exists'] = oth_df['nbart_name'].apply(exists)
-    oth_df['pq_exists'] = oth_df['pq_name'].apply(exists)
+    # oth_df['nbar_exists'] = oth_df['nbar_name'].apply(exists)
+    # oth_df['nbart_exists'] = oth_df['nbart_name'].apply(exists)
+    # oth_df['pq_exists'] = oth_df['pq_name'].apply(exists)
 
     # output
     out_fname = 'collection-completeness-{rank}.h5'.format(rank=rank)
     store = pandas.HDFStore(out_fname, 'w', complib='blosc')
-    store['lpgs_fails'] = fails
+    store['lpgs_fails'] = pandas.DataFrame({'level0_fname': failures})
     store['sys_products'] = sys_df
     store['oth_and_children_products'] = oth_df
+    store.close()
+
+
+def combine(ncpus):
+
+    out_fname = 'collection-completeness.h5'
+    collection_fmt = 'collection-completeness-{}.h5'
+    keys = ['sys_products', 'oth_and_children_products']
+
+    results = {}
+    for key in keys:
+        results[key] = pandas.DataFrame()
+
+    store = pandas.HDFStore(out_fname, 'w', complib='blosc')
+
+    for i in range(ncpus):
+        tmp_store = pandas.HDFStore(collection_fmt.format(i), 'r')
+        for key in keys:
+            results[key] = results[key].append(tmp_store[key],
+                                               ignore_index=True)
+        tmp_store.close()
+
+    # apply here as for some reason it isn't working under mpi
+    # determine whether or not a child product exists
+    key = ['oth_and_children_products']
+    results[key]['nbar_exists'] = results[key]['nbar_name'].apply(exists)
+    results[key]['nbart_exists'] = results[key]['nbart_name'].apply(exists)
+    results[key]['pq_exists'] = results[key]['pq_name'].apply(exists)
+
+    for key in keys:
+        store[key] = results[key]
     store.close()
 
 
@@ -244,5 +280,18 @@ def main():
 
 
 if __name__ == '__main__':
-    files_fname = 'ls578-lpgs_out.xml.txt'
-    main_mpi(files_fname)
+    parser = argparse.ArgumentParser(description="GA Landsat Harvest")
+    parser.add_argument('--combine', action="store_true",
+                        help=("If set, then the tables stored in seperate "
+                              "fileswill be combined into single file."))
+    parser.add_argument('--ncpus', type=int, default=16,
+                        help=("The number of CPU's used to harvest the "
+                              "Landsat colletion. Default is 16"))
+
+    parsed_args = parser.parse_args()
+
+    if parsed_args.combine:
+        combine(parsed_args.ncpus)
+    else:
+        files_fname = 'ls578-lpgs_out.xml.txt'
+        main_mpi(files_fname)
