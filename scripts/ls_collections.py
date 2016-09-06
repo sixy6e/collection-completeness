@@ -29,6 +29,19 @@ PQ_BASE = '/g/data/rs0/scenes/pq-scenes-tmp/{sensor}/{year}/{month}/output/pqa/{
 WRS2SHAPEFILE = '/g/data2/v10/public/agdcv2_completeness/reference/wrs2_descending.shp'
 
 
+def match_pass_id(row, pid):
+    # eg contains 'LS5-199101' to get 1991 Jan
+    return row.str.contains(pid)
+
+
+def sensor(row):                                   
+    return row.split('-')[0]
+
+
+def dt(row):                                       
+    return datetime.strptime(row.split('-')[1], '%Y%m%d')
+
+
 def nbar_name_from_l1t(l1t_fname):
     """
     Return an NBAR file name given a L1T file name or None if
@@ -193,6 +206,11 @@ def main_mpi(input_fname):
     oth_df['nbart_name'] = oth_df['level1_name'].apply(nbart_name_from_l1t)
     oth_df['pq_name'] = oth_df['level1_name'].apply(pqa_name_from_nbar)
 
+    oth_df['sensor'] = oth_df['pass_id'].apply(sensor)
+    oth_df['date'] = oth_df['pass_id'].apply(dt)
+    sys_df['sensor'] = sys_df['pass_id'].apply(sensor)
+    sys_df['date'] = sys_df['pass_id'].apply(dt)
+
 
     # TODO: under MPI the results appear to be all False
     # once the results have been combined, then do the exists function
@@ -233,10 +251,12 @@ def combine(ncpus):
 
     # apply here as for some reason it isn't working under mpi
     # determine whether or not a child product exists
-    key = ['oth_and_children_products']
-    results[key]['nbar_exists'] = results[key]['nbar_name'].apply(exists)
-    results[key]['nbart_exists'] = results[key]['nbart_name'].apply(exists)
-    results[key]['pq_exists'] = results[key]['pq_name'].apply(exists)
+    df = results['oth_and_children_products']
+    df['nbar_exists'] = df['nbar_name'].apply(exists)
+    df['nbart_exists'] = df['nbart_name'].apply(exists)
+    df['pq_exists'] = df['pq_name'].apply(exists)
+
+    results['oth_and_children_products'] = df
 
     for key in keys:
         store[key] = results[key]
