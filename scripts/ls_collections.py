@@ -16,7 +16,7 @@ SENSORS = ['ls5', 'ls7', 'ls8']
 
 L1T_PATTERN = ('(?P<spacecraft_id>LS\d)_(?P<sensor_id>\w+)_'
                '(?P<product_type>\w+)'
-               '_(?P<product_id>P\d+)_GA(?P<product_code>.*)-'
+               '_(?P<product_id>P\d+.*)_GA(?P<product_code>.*)-'
                '(?P<station_id>\d+)_'
                '(?P<wrs_path>\d+)_(?P<wrs_row>\d+)_'
                '(?P<acquisition_date>\d{8})')
@@ -39,7 +39,7 @@ def sensor(row):
 
 
 def dt(row):                                       
-    return datetime.strptime(row.split('-')[1], '%Y%m%d')
+    return datetime.datetime.strptime(row.split('-')[1], '%Y%m%d')
 
 
 def nbar_name_from_l1t(l1t_fname):
